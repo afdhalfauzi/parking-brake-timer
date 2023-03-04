@@ -24,6 +24,7 @@ int reset_state;
 unsigned long current_millis = 0;
 unsigned long previous_millis = 0;
 unsigned long reset_btn_press_time = 0;
+unsigned long blinking_time = 0;
 long timer = 60;
 int timer_number = 1;
 bool reset_btn_pressed = false;
@@ -74,30 +75,35 @@ void lcdPrint()
   lcd.print(isReset());
 }
 
-void lampBlinking()
-{
-  lcdPrint();
-  for (int i = 0; i < 10; i++) // for 10sec
-  {
-    digitalWrite(LAMP_PIN, HIGH);
-    digitalWrite(TIMER_PIN, LOW);
-    delay(500);
-    digitalWrite(LAMP_PIN, LOW);
-    digitalWrite(TIMER_PIN, HIGH);
-    delay(500);
-  }
-}
+// void lampBlinking()
+// {
+//   lamp_state = 1;
+//   lcdPrint();
+//   for (int i = 0; i < 10; i++) // for 10sec
+//   {
+//     digitalWrite(LAMP_PIN, HIGH);
+//     digitalWrite(TIMER_PIN, LOW);
+//     delay(500);
+//     digitalWrite(LAMP_PIN, LOW);
+//     digitalWrite(TIMER_PIN, HIGH);
+//     delay(500);
+//   }
+// }
 
 void alarmBlinking()
 {
-  buzzer_state = 1;
+  lamp_state = 1;
   lcdPrint();
+
   current_millis = millis();
-  if (current_millis - previous_millis > 500) // blinking every 1sec
+  if (current_millis - previous_millis > 500 * 0.75) // blinking every 1sec
   {
     previous_millis = current_millis;
-
-    digitalWrite(ALARM_PIN, !digitalRead(ALARM_PIN));
+    if (millis() - blinking_time > 10000 * 0.75) // alarm blinking after 10sec
+    {
+      buzzer_state = 1;
+      digitalWrite(ALARM_PIN, !digitalRead(ALARM_PIN));
+    }
     digitalWrite(LAMP_PIN, !digitalRead(LAMP_PIN));
     digitalWrite(TIMER_PIN, !digitalRead(TIMER_PIN));
   }
@@ -147,18 +153,17 @@ void loop()
 {
   readTimerInput();
 
-  while (isBrake()) // true if brake is active
+  while (isBrake() && !isReset()) // true if brake is active
   {
     current_millis = millis();
-    if (current_millis - previous_millis > 1000) // 1 second
+    if (current_millis - previous_millis > 1000 * 0.75) // 1 second
     {
       previous_millis = current_millis;
       timer--;
     }
     if (timer <= 0)
     {
-      lamp_state = 1;
-      lampBlinking(); // for 10 seconds
+      blinking_time = millis();
       while (!isReset())
       {
         alarmBlinking();
@@ -171,10 +176,15 @@ void loop()
   {
     if (!reset_btn_pressed)
     {
+      buzzer_state = 0;
+      lamp_state = 0;
+      digitalWrite(ALARM_PIN, LOW);
+      digitalWrite(LAMP_PIN, LOW);
+      digitalWrite(TIMER_PIN, LOW);
       reset_btn_pressed = true;
       reset_btn_press_time = millis();
     }
-    if ((millis() - reset_btn_press_time) >= 5000) // reset button pressed > 5sec
+    if ((millis() - reset_btn_press_time) >= 5000 * 0.75) // reset button pressed > 5sec
     {
       reset_state = 0;
       while (reset_state == 0 || reset_state == 1)
