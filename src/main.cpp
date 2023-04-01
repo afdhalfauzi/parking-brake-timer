@@ -28,6 +28,8 @@ unsigned long blinking_time = 0;
 long timer = 60;
 int timer_number = 1;
 bool reset_btn_pressed = false;
+bool timer_out = false;     // true after timer runs out.
+bool blinking_test = false; // true if reset button pressed > 5seconds
 
 bool isBrake();
 bool isReset();
@@ -99,7 +101,7 @@ void alarmBlinking()
   if (current_millis - previous_millis > 500 * 0.75) // blinking every 1sec
   {
     previous_millis = current_millis;
-    if (millis() - blinking_time > 10000 * 0.75) // alarm blinking after 10sec
+    if ((millis() - blinking_time > 10000 * 0.75) || blinking_test) // alarm blinking after 10sec or reset button pressed > 5sec
     {
       buzzer_state = 1;
       digitalWrite(ALARM_PIN, !digitalRead(ALARM_PIN));
@@ -153,7 +155,7 @@ void loop()
 {
   readTimerInput();
 
-  while (isBrake() && !isReset()) // true if brake is active
+  while ((isBrake() && !isReset()) || (timer_out && !isReset())) // true if brake is active
   {
     current_millis = millis();
     if (current_millis - previous_millis > 1000 * 0.75) // 1 second
@@ -163,6 +165,7 @@ void loop()
     }
     if (timer <= 0)
     {
+      timer_out = true;
       blinking_time = millis();
       while (!isReset())
       {
@@ -186,20 +189,31 @@ void loop()
     }
     if ((millis() - reset_btn_press_time) >= 5000 * 0.75) // reset button pressed > 5sec
     {
-      reset_state = 0;
-      while (reset_state == 0 || reset_state == 1)
+      // reset_state = 0;
+      // while (reset_state == 0 || reset_state == 1)
+      // {
+      //   if (!isReset())
+      //   {
+      //     reset_state = 1;
+      //   }
+      //   if (isReset() && reset_state == 1)
+      //   {
+      //     reset_state = 2;
+      //   }
+      // alarmBlinking();
+      // }
+      blinking_test = true;
+      while (isReset())
       {
-        if (!isReset())
-        {
-          reset_state = 1;
-        }
-        if (isReset() && reset_state == 1)
-        {
-          reset_state = 2;
-          reset_btn_pressed = false;
-        }
         alarmBlinking();
       }
+      reset_btn_pressed = false;
+      blinking_test = false;
+      buzzer_state = 0;
+      lamp_state = 0;
+      digitalWrite(ALARM_PIN, LOW);
+      digitalWrite(LAMP_PIN, LOW);
+      digitalWrite(TIMER_PIN, LOW);
     }
   }
   else
